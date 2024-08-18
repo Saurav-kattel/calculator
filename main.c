@@ -51,7 +51,12 @@ const Keys keys[] = {
     {startX + (keyWidth + keySpacing) * 2,
      startY + (keyHeight + keySpacing) * 3, keyWidth, keyHeight, '='},
     {startX + (keyWidth + keySpacing) * 3,
-     startY + (keyHeight + keySpacing) * 3, keyWidth, keyHeight, '+'}};
+     startY + (keyHeight + keySpacing) * 3, keyWidth, keyHeight, '+'},
+    // Row 4
+    {startX, startY + (keyHeight + keySpacing) * 4, keyWidth, keyHeight, 'C'},
+    {startX + (keyWidth + keySpacing) * 1,
+     startY + (keyHeight + keySpacing) * 4, keyWidth, keyHeight, 'x'},
+};
 
 const int keySize = sizeof(keys) / sizeof(keys[0]);
 int main() {

@@ -12,7 +12,7 @@ SOURCES = $(SRC_DIR)/main.c $(LIB_DIR)/lib.c
 OBJECTS = $(SOURCES:.c=.o)
 
 # Define the executable name
-TARGET = main
+TARGET = calc
 
 # Define the SDL2 flags
 SDL2_CFLAGS = $(shell sdl2-config --cflags)

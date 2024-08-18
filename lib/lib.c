@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+//--------------------------------SDL---------------------------------------
 void handlePollEvents(int *flag, SDL_Event *e, char *input, const Keys *keys,
                       int keySize) {
 
@@ -42,30 +43,53 @@ void handlePollEvents(int *flag, SDL_Event *e, char *input, const Keys *keys,
     for (int i = 0; i < keySize; i++) {
       Keys key = keys[i];
       char equalKey = '=';
+
       if (mouseX >= key.x && mouseX <= key.x + key.w && mouseY >= key.y &&
           mouseY <= key.y + key.h) {
-        if (key.name != equalKey) {
-          strcat(input, &key.name);
-        } else {
-          Lexer *lex = InitLexer(input);
-          Token *tkn = GetNextToken(lex);
+        switch (key.name) {
+        case '=':
+          Lexer *lex = (Lexer *)malloc(sizeof(Lexer));
+          lex->cursor = 0;
+          lex->tokenCount = 0;
+          int soruceLen = strlen(input);
+          lex->soruce = (char *)malloc(sizeof(char) * soruceLen + 1);
 
-          while ((tkn != NULL) && (tkn->type != ERR)) {
-            printf("%s\n", tkn->value);
-            tkn = GetNextToken(lex);
-          }
+          strcpy(lex->soruce, input);
+          Parser *p = (Parser *)malloc(sizeof(Parser));
+          p->currentToken = GetNextToken(lex);
 
-          free(tkn); // Ensure memory is freed for the last token
+          AstNode *ast = expr(lex, p);
+
+          double result = evalAst(ast);
+          char res[100];
+
+          sprintf(res, "%.2lf", result);
+          strcpy(input, res);
+
+          free(lex->soruce);
+          freeAST(ast);
+          free(p);
           free(lex);
+          break;
+        case 'C':
+          if (strlen(input) > 0) {
+            input[strlen(input) - 1] = '\0';
+          }
+          break;
+        case 'x':
+          while (strlen(input) != 0) {
+            input[strlen(input) - 1] = '\0';
+          }
+          break;
+        default:
+          if (key.name != equalKey) {
+            strcat(input, &key.name);
+          }
         }
       }
     }
-
-  default:
-    break;
   }
 }
-
 void drawKey(SDL_Renderer *ren, TTF_Font *font, Keys key) {
   SDL_SetRenderDrawColor(ren, 0XFF, 0XFF, 0XFF, 0XFF);
   SDL_Rect rect = {key.x, key.y, key.w, key.h};
@@ -89,6 +113,7 @@ void drawKeyChar(SDL_Renderer *ren, TTF_Font *font, Keys key) {
   }
 }
 
+//-------------------------------Lexer---------------------------------------
 Token *NewToken(TokenType type, char *value) {
   Token *tkn = (Token *)malloc(sizeof(Token));
   tkn->type = type;
@@ -140,7 +165,6 @@ Lexer *InitLexer(char *source) {
   Lexer *lex = (Lexer *)malloc(sizeof(Lexer));
   lex->cursor = 0;
   lex->tokenCount = 0;
-  lex->tokens = (Token *)malloc(sizeof(Token) * 100);
   int soruceLen = strlen(source);
   lex->soruce = (char *)malloc(sizeof(char) * soruceLen + 1);
   strcpy(lex->soruce, source);
@@ -149,6 +173,7 @@ Lexer *InitLexer(char *source) {
 
 Token *GetNextToken(Lexer *lexer) {
   skipWhiteSpace(lexer);
+
   if (isAtEnd(lexer)) {
     return NULL; // End of input
   }
@@ -192,9 +217,7 @@ Token *GetNextToken(Lexer *lexer) {
     return tkn;
   }
   if (isalpha(c) && !isOperator(c)) {
-    Token *tkn = NewToken(ERR, "Error");
-    lexer->tokenCount++;
-    return tkn;
+    exit(1);
   }
 
   // Handle numbers
@@ -219,8 +242,145 @@ Token *GetNextToken(Lexer *lexer) {
     return tkn;
   }
 
-  printf("unknown token: %c\n", c);
-  Token *tkn = NewToken(ERR, "Error");
+  Token *tkn = NewToken(ERR, "Error is whitespace");
   lexer->tokenCount++;
   return tkn;
+}
+
+//-----------------------------parser---------------------------------------
+/*
+expr    -> term (('+' | '-') term)*
+term    -> factor (('*' | '/') factor)*
+factor  -> NUMBER | '(' expr ')'
+*/
+
+void eat(TokenType type, Parser *p, Lexer *lex) {
+  if (p->currentToken && type == p->currentToken->type) {
+    p->currentToken = GetNextToken(lex);
+  } else {
+    exit(1);
+  }
+}
+
+static double convertStrToDouble(char *s) {
+  double val;
+  sscanf(s, "%lf", &val);
+  return val;
+}
+AstNode *newNumberNode(double value) {
+  AstNode *node = (AstNode *)malloc(sizeof(AstNode));
+  node->type = NODE_NUM;
+  node->number = value;
+  return node;
+}
+AstNode *newBinaryNode(TokenType op, AstNode *left, AstNode *right) {
+  AstNode *node = (AstNode *)malloc(sizeof(AstNode));
+  if (!node) {
+    exit(1);
+  }
+
+  node->type = NODE_BINOP;
+  node->binary_op.op = op;
+  node->binary_op.left = left;
+  node->binary_op.right = right;
+
+  return node;
+}
+
+AstNode *expr(Lexer *l, Parser *p) {
+  if (p->currentToken == NULL) {
+    exit(1);
+  }
+
+  AstNode *node = term(l, p);
+
+  while (p->currentToken &&
+         (p->currentToken->type == PLUS || p->currentToken->type == MINUS)) {
+    Token *tkn = p->currentToken;
+    if (tkn == NULL) {
+      exit(1);
+    }
+
+    eat(tkn->type, p, l);
+    AstNode *right = term(l, p);
+    node = newBinaryNode(tkn->type, node, right);
+  }
+  return node;
+}
+
+AstNode *factor(Lexer *l, Parser *p) {
+  Token *token = p->currentToken;
+  if (token->type == NUMBER) {
+    eat(token->type, p, l);
+    double value = convertStrToDouble(token->value);
+    AstNode *node = newNumberNode(value);
+    return node;
+
+  } else if (token->type == LPAREN) {
+    eat(LPAREN, p, l);
+    AstNode *res = expr(l, p);
+    eat(RPAREN, p, l);
+    return res;
+
+  } else {
+    exit(1);
+  }
+}
+
+AstNode *term(Lexer *l, Parser *p) {
+  if (p == NULL) {
+    exit(1);
+  }
+
+  if (p->currentToken == NULL) {
+    exit(1);
+  }
+
+  AstNode *node = factor(l, p); // Assuming term calls factor
+
+  while (p->currentToken && (p->currentToken->type == MULTIPLY ||
+                             p->currentToken->type == DIVIDE)) {
+    Token *tkn = p->currentToken;
+    if (tkn == NULL) {
+      exit(1);
+    }
+
+    eat(tkn->type, p, l); // Consume the operator
+    AstNode *right = factor(l, p);
+
+    node = newBinaryNode(tkn->type, node, right);
+  }
+
+  return node;
+}
+
+double evalAst(AstNode *node) {
+  if (node->type == NODE_NUM) {
+    return node->number;
+  } else if (node->type == NODE_BINOP) {
+
+    double left = evalAst(node->binary_op.left);
+    double right = evalAst(node->binary_op.right);
+
+    if (node->binary_op.op == PLUS) {
+      return left + right;
+    } else if (node->binary_op.op == MINUS) {
+      return left - right;
+    } else if (node->binary_op.op == DIVIDE) {
+      return left / right;
+    } else if (node->binary_op.op == MULTIPLY) {
+      return left * right;
+    } else {
+      exit(1);
+    }
+  }
+  return 0.0;
+}
+
+void freeAST(AstNode *node) {
+  if (node->type == NODE_BINOP) {
+    freeAST(node->binary_op.left);
+    freeAST(node->binary_op.right);
+  }
+  free(node);
 }

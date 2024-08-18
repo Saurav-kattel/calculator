@@ -14,6 +14,19 @@ typedef struct {
 } Keys;
 
 typedef int TokenType;
+typedef enum { NODE_NUM, NODE_BINOP } NodeType;
+
+typedef struct AstNode {
+  NodeType type;
+  union {
+    double number;
+    struct {
+      struct AstNode *left;
+      struct AstNode *right;
+      TokenType op;
+    } binary_op;
+  };
+} AstNode;
 
 typedef struct {
   TokenType type;
@@ -24,8 +37,11 @@ typedef struct {
   int cursor;
   char *soruce;
   int tokenCount;
-  Token *tokens;
 } Lexer;
+
+typedef struct {
+  Token *currentToken;
+} Parser;
 
 enum TokenTypes { LPAREN, RPAREN, DIVIDE, MULTIPLY, PLUS, MINUS, ERR, NUMBER };
 
@@ -39,5 +55,15 @@ void handlePollEvents(int *flag, SDL_Event *e, char *input, const Keys *key,
 void drawKey(SDL_Renderer *ren, TTF_Font *font, Keys key);
 void drawKeyChar(SDL_Renderer *ren, TTF_Font *font, Keys key);
 void eval(char *input);
+static char advance(Lexer *);
 
+void eat(TokenType type, Parser *p, Lexer *lex);
+int check(TokenType, Parser *);
+AstNode *term(Lexer *, Parser *);
+AstNode *expr(Lexer *, Parser *);
+AstNode *factor(Lexer *, Parser *);
+double evalAst(AstNode *node);
+void advanceParser(Lexer *, Parser *);
+void freeAST(AstNode *node);
 #endif // LIB_H
+       //
