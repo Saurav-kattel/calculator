@@ -4,12 +4,13 @@ CC = gcc
 # Define the directories
 SRC_DIR = .
 LIB_DIR = ./lib
+BUILD_DIR = ./build
 
 # Define the sources
 SOURCES = $(SRC_DIR)/main.c $(LIB_DIR)/lib.c
 
 # Define the object files
-OBJECTS = $(SOURCES:.c=.o)
+OBJECTS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCES))
 
 # Define the executable name
 TARGET = calc
@@ -34,12 +35,21 @@ $(TARGET): $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 # Build the object files
-%.o: %.c
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)  # Create the directory if it doesn't exist
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Install target
+install: $(TARGET)
+	sudo install -m 755 $(TARGET) /usr/local/bin/
 
 # Clean up
 clean:
-	rm -f $(TARGET) $(OBJECTS)
+	rm -rf $(TARGET) $(BUILD_DIR)
+
+# Uninstall target
+uninstall:
+	sudo rm -f /usr/local/bin/$(TARGET)
 
 # Phony targets
-.PHONY: all clean
+.PHONY: all clean install uninstall

@@ -76,11 +76,13 @@ void handlePollEvents(int *flag, SDL_Event *e, char *input, const Keys *keys,
             input[strlen(input) - 1] = '\0';
           }
           break;
-        case 'x':
+        case 'X':
           while (strlen(input) != 0) {
             input[strlen(input) - 1] = '\0';
           }
           break;
+        case 'Q':
+          exit(0);
         default:
           if (key.name != equalKey) {
             strcat(input, &key.name);
